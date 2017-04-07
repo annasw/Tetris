@@ -3,11 +3,11 @@ import random
 import math
 import pygame
 from pygame.locals import *
+from tetromino import *
 
 '''
 FUNCTIONALITY YET TO ADD:
 - Better turning mechanics (near walls, etc. - should be able to move r or l one square if that fits) OR NEAR CEILING - bump down
-- Restart mechanic (on pause or endgame)
 - Block storage (one at a time/no more than one switch in a row)
 '''
 
@@ -52,6 +52,13 @@ class Tetris:
 		
 		self.startCoordinates = (self.barWidth + self.blockSize*2,0)
 		pygame.display.set_caption('Tetris!')
+	
+	# reset all aspects of the game
+	def restart(self):
+		self.score = 0
+		self.nextBlock = None
+		self.placedBlocks = [[None for x in range(self.gameWidth/self.blockSize)] for y in range(self.height/self.blockSize)]
+		self.newBlock()
 		
 	def newBlock(self):
 		genre = random.choice(self.genres)
@@ -151,7 +158,6 @@ class Tetris:
 		self.clearRows()
 	
 	
-	
 	# pause method. also handles exiting the game
 	def pause(self):
 		# display a screen with PAUSE and
@@ -165,17 +171,22 @@ class Tetris:
 		
 		# pausescreen text
 		pauseText = "PAUSED"
+		'''TOO LONG'''
 		instructionText = "Q TO QUIT, ESC TO UNPAUSE"
+		resetText = "R TO RESTART"
 		
 		myFont = pygame.font.SysFont("monospace", 30, 1)
 		pauseWord = myFont.render(pauseText, 1, self.colors['RED'])
 		instructions = myFont.render(instructionText,1,self.colors['RED'])
+		resetWord = myFont.render(resetText,1,self.colors['RED'])
 		
 		pauseWordDimensions = myFont.size(pauseText) # duple (width, height)
 		instructionsDimensions = myFont.size(instructionText)
+		resetDimensions = myFont.size(resetText)
 		
 		self.screen.blit(pauseWord, ((self.width-pauseWordDimensions[0])/2,self.height/4))
 		self.screen.blit(instructions, ((self.width-instructionsDimensions[0])/2,self.height/2))
+		self.screen.blit(resetWord, ((self.width-resetDimensions[0])/2,3*self.height/4))
 				
 		pygame.display.flip()
 		
@@ -195,6 +206,9 @@ class Tetris:
 					if e.key == pygame.K_q:
 						pygame.quit()
 						sys.exit()
+					if e.key == pygame.K_r:
+						self.restart()
+						done = True # unpause
 				# resume the game
 					if e.key == pygame.K_ESCAPE and pygame.time.get_ticks()-pauseStart>200:
 						done = True
@@ -225,8 +239,8 @@ class Tetris:
 		# gameOverScreen text
 		text1 = "GAME OVER"
 		text2 = "FINAL SCORE: " + str(self.score)
-		#text3 = "Q TO QUIT, R TO RESTART"
-		text3 = "Q TO QUIT"
+		text3 = "Q TO QUIT, R TO RESTART"
+		#text3 = "Q TO QUIT"
 		
 		myFont = pygame.font.SysFont("monospace", 30, 1)
 		doneText1 = myFont.render(text1,1,self.colors['BLUE'])
@@ -244,7 +258,8 @@ class Tetris:
 		pygame.display.flip()
 		
 		pauseStart = pygame.time.get_ticks()
-		while True:
+		done = False
+		while not done:
 			self.fpsClock.tick(self.FPS)
 			
 			for e in pygame.event.get():
@@ -257,10 +272,9 @@ class Tetris:
 						pygame.quit()
 						sys.exit()
 					# press r to restart
-					'''doesn't work yet'''
 					if e.key == pygame.K_r:
-						pygame.quit()
-						sys.exit()
+						self.restart()
+						done = True
 	
 	def MainLoop(self):
 		self.newBlock()
@@ -338,7 +352,7 @@ class Tetris:
 						self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks)
 			
 			# deal with a dead tetromino and/or endgame
-			if not self.tetro.alive:				
+			if not self.tetro.alive:
 				self.blockDeath()
 				self.newBlock()
 				
@@ -348,339 +362,6 @@ class Tetris:
 			self.drawScreen()
 			pygame.display.flip()
 		
-
-
-class Tetromino:
-	blockColors = {'LONG':'AQUA','RHOOK':'BLUE','LHOOK':'ORANGE',
-			  'SQUARE':'YELLOW','SBLOCK':'GREEN',
-			  'TBLOCK':'PURPLE','ZBLOCK':'PINK'}
-	
-	maxOrientation = {'LONG':1,'RHOOK':3,'LHOOK':3,'SQUARE':0,
-					  'SBLOCK':1,'TBLOCK':3,'ZBLOCK':1}
-	
-	# Genre is the shape of block
-	def __init__(self, genre, blockSize, x_coord, y_coord, height, placedBlocks):
-		self.genre = genre
-		self.blockSize = blockSize
-		self.x_coord = x_coord
-		self.y_coord = y_coord
-		self.blockColor = self.blockColors[genre]
-		self.alive = True
-		self.placedBlocks = placedBlocks
-		self.height = height
-		
-		# Attribute to track orientation
-		# Initially 0; this is the max for SQUARE
-		# LONG, SBLOCK, and ZBLOCKs also have a 1
-		# LHOOK, RHOOK, and TBLOCK also have 2 and 3, based on clockwise rotation from initial orientation
-		self.orientation = 0
-		
-		# Array of the rects in the tetromino
-		self.rectGroup = []
-		
-		if self.genre=='LONG':
-			self.rectGroup.append(Rect(self.x_coord, self.y_coord,
-			                   self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord, self.y_coord+blockSize,
-							   self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord, self.y_coord+blockSize*2,
-							   self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord, self.y_coord+blockSize*3,
-							   self.blockSize, self.blockSize))
-		elif self.genre=='RHOOK':
-			self.rectGroup.append(Rect(self.x_coord,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord, self.y_coord+blockSize*2,
-								  self.blockSize, self.blockSize))
-		elif self.genre=='LHOOK':
-			self.rectGroup.append(Rect(self.x_coord,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize, self.y_coord+blockSize*2,
-								  self.blockSize, self.blockSize))
-		elif self.genre=='SQUARE':
-			self.rectGroup.append(Rect(self.x_coord,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-		elif self.genre=='SBLOCK':
-			self.rectGroup.append(Rect(self.x_coord+blockSize,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize*2,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-		elif self.genre=='ZBLOCK':
-			self.rectGroup.append(Rect(self.x_coord,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize*2, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-		elif self.genre=='TBLOCK':
-			self.rectGroup.append(Rect(self.x_coord+blockSize,self.y_coord,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord,self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-			self.rectGroup.append(Rect(self.x_coord+blockSize*2, self.y_coord+blockSize,
-								  self.blockSize, self.blockSize))
-		
-		# Create a "ghost" piece at the bottom to show where tetromino would land with a harddrop
-		self.dropGhosts()
-	
-	# returns True if there is currently a collision, False otherwise.
-	def checkCollision(self, walls, placedBlocks):
-		correction = False
-		for e in self.rectGroup:
-			for wall in walls:
-				if e.colliderect(wall):
-					correction = True
-			for row in self.placedBlocks:
-				for block in row:
-					if block != None:
-						if e.colliderect(block):
-							correction = True
-			if e.y < 0 or e.bottom > self.height:
-				correction = True
-		return correction
-	
-	# direction to rotate. "CW" is clockwise, "CCW" is counterclockwise
-	def rotate(self, walls, placedBlocks, direction):
-		'''
-		Rotate the block,
-		Check for collision,
-		If so rotate back to original (i.e. undo rotation)
-		'''
-		
-		self.placedBlocks = placedBlocks
-		
-		# figure out number of rotations given genre and direction
-		numRotations = 0
-		if direction == "CW":
-			numRotations = 1
-		else: # direction == "CCW"
-			numRotations = self.maxOrientation[self.genre]
-		
-		for r in range(numRotations):
-			self.rotateBlock()
-		
-		correction = self.checkCollision(walls, self.placedBlocks)
-		if correction:
-			if direction == "CW":
-				numRotations = self.maxOrientation[self.genre]
-			else:
-				numRotations = 1
-			for r in range(numRotations):
-				self.rotateBlock()
-
-		self.dropGhosts()
-	
-	def rotateBlock(self):
-		if self.genre=='LONG':
-			if self.orientation == 0: # vertical -> horizontal
-				self.rectGroup[1].y -= self.blockSize
-				self.rectGroup[1].x += self.blockSize
-				self.rectGroup[2].y -= self.blockSize*2
-				self.rectGroup[2].x += self.blockSize*2
-				self.rectGroup[3].y -= self.blockSize*3
-				self.rectGroup[3].x += self.blockSize*3
-				self.orientation = 1
-			elif self.orientation == 1: # horizontal -> vertical (undo previous if)
-				self.rectGroup[1].y += self.blockSize
-				self.rectGroup[1].x -= self.blockSize
-				self.rectGroup[2].y += self.blockSize*2
-				self.rectGroup[2].x -= self.blockSize*2
-				self.rectGroup[3].y += self.blockSize*3
-				self.rectGroup[3].x -= self.blockSize*3
-				self.orientation = 0
-		elif self.genre=='SQUARE':
-			pass # squares can't rotate
-		elif self.genre=='SBLOCK':
-			if self.orientation == 0: #z to vertical-orientation
-				self.rectGroup[0].x += self.blockSize
-				self.rectGroup[1].y += self.blockSize
-				self.rectGroup[2].y -= self.blockSize
-				self.rectGroup[2].x += self.blockSize
-				self.rectGroup[3].y -= self.blockSize*2
-				self.orientation = 1
-			elif self.orientation == 1:
-				self.rectGroup[0].x -= self.blockSize
-				self.rectGroup[1].y -= self.blockSize
-				self.rectGroup[2].y += self.blockSize
-				self.rectGroup[2].x -= self.blockSize
-				self.rectGroup[3].y += self.blockSize*2
-				self.orientation = 0
-		elif self.genre=='ZBLOCK':
-			if self.orientation == 0:
-				self.rectGroup[0].x += self.blockSize*2
-				self.rectGroup[1].y += self.blockSize*2
-				self.orientation = 1
-			elif self.orientation == 1:
-				self.rectGroup[0].x -= self.blockSize*2
-				self.rectGroup[1].y -= self.blockSize*2
-				self.orientation = 0
-		elif self.genre=='LHOOK':
-			if self.orientation == 0:
-				self.rectGroup[0].x += self.blockSize*2
-				self.rectGroup[1].x += self.blockSize
-				self.rectGroup[1].y += self.blockSize
-				self.rectGroup[3].y -= self.blockSize
-				self.rectGroup[3].x -= self.blockSize
-				self.orientation = 1
-			elif self.orientation == 1:
-				self.rectGroup[0].y += self.blockSize*2
-				self.rectGroup[1].y += self.blockSize
-				self.rectGroup[1].x -= self.blockSize
-				self.rectGroup[3].x += self.blockSize
-				self.rectGroup[3].y -= self.blockSize
-				self.orientation = 2
-			elif self.orientation == 2:
-				self.rectGroup[0].x -= self.blockSize*2
-				self.rectGroup[1].x -= self.blockSize
-				self.rectGroup[1].y -= self.blockSize
-				self.rectGroup[3].x += self.blockSize
-				self.rectGroup[3].y += self.blockSize
-				self.orientation = 3
-			elif self.orientation == 3:
-				self.rectGroup[0].y -= self.blockSize*2
-				self.rectGroup[1].y -= self.blockSize
-				self.rectGroup[1].x += self.blockSize
-				self.rectGroup[3].y += self.blockSize
-				self.rectGroup[3].x -= self.blockSize
-				self.orientation = 0
-		elif self.genre=='RHOOK':
-			if self.orientation == 0:
-				self.rectGroup[0].x += self.blockSize
-				self.rectGroup[0].y += self.blockSize
-				self.rectGroup[1].y += self.blockSize*2
-				self.rectGroup[3].x -= self.blockSize
-				self.rectGroup[3].y -= self.blockSize
-				self.orientation = 1
-			elif self.orientation == 1:
-				self.rectGroup[0].x -= self.blockSize
-				self.rectGroup[0].y += self.blockSize
-				self.rectGroup[1].x -= self.blockSize*2
-				self.rectGroup[3].x += self.blockSize
-				self.rectGroup[3].y -= self.blockSize
-				self.orientation = 2
-			elif self.orientation == 2:
-				self.rectGroup[0].x -= self.blockSize
-				self.rectGroup[0].y -= self.blockSize
-				self.rectGroup[1].y -= self.blockSize*2
-				self.rectGroup[3].x += self.blockSize
-				self.rectGroup[3].y += self.blockSize
-				self.orientation = 3
-			elif self.orientation == 3:
-				self.rectGroup[0].x += self.blockSize
-				self.rectGroup[0].y -= self.blockSize
-				self.rectGroup[1].x += self.blockSize*2
-				self.rectGroup[3].x -= self.blockSize
-				self.rectGroup[3].y += self.blockSize
-				self.orientation = 0
-		elif self.genre=='TBLOCK':
-			if self.orientation == 0:
-				self.rectGroup[1].x += self.blockSize
-				self.rectGroup[1].y += self.blockSize
-				self.orientation = 1
-			elif self.orientation == 1:
-				self.rectGroup[0].y += self.blockSize*2
-				self.rectGroup[1].x -= self.blockSize
-				self.rectGroup[1].y -= self.blockSize
-				self.orientation = 2
-			elif self.orientation == 2:
-				self.rectGroup[0].y -= self.blockSize*2
-				self.rectGroup[3].y += self.blockSize
-				self.rectGroup[3].x -= self.blockSize
-				self.orientation = 3
-			elif self.orientation == 3:
-				self.rectGroup[3].x += self.blockSize
-				self.rectGroup[3].y -= self.blockSize
-				self.orientation = 0
-				
-	def dropGhosts(self):
-		self.ghostBlocks = []
-		for a in self.rectGroup:
-			self.ghostBlocks.append(Rect(a.x,a.y,self.blockSize,self.blockSize))
-		
-		# drop ghostblocks to the bottom
-		correction = False
-		while not correction:			
-			for e in self.ghostBlocks:
-				e.y += self.blockSize
-				
-				for row in self.placedBlocks:
-					for block in row:
-						if block != None:
-							if e.colliderect(block):
-								correction = True
-				
-				if e.y < 0 or e.bottom > self.height:
-					correction = True
-				
-			if correction:
-				for e in self.ghostBlocks:
-					e.y -= self.blockSize
-		
-	
-	def move(self, dx, dy, wallArray, placedBlocks):
-		self.placedBlocks = placedBlocks
-		if dx!=0:
-			self.move_single_axis(dx,0,wallArray)
-		if dy!=0:
-			self.move_single_axis(0,dy,wallArray)
-		
-		if self.alive:
-			self.dropGhosts()
-			
-			
-	# move ALL rects in the piece, check each for collision;
-	# if there's ANY collision, move them ALL back
-	def move_single_axis(self, dx, dy, walls):
-		correction = False
-		
-		for e in self.rectGroup:
-			e.x += dx
-			e.y += dy
-			
-			# maybe also check the fallen blocks?
-			for wall in walls: # need to get this in somehow
-				if e.colliderect(wall):
-					correction = True
-			for row in self.placedBlocks:
-				for block in row:
-					if block != None:
-						if e.colliderect(block):
-							correction = True
-			
-			# check that we don't go off the top or bottom
-			# MAYBE CHECKING WALL HEIGHT ISN'T A GOOD IDEA
-			if e.y < 0 or e.bottom > self.height:
-				correction = True
-			
-		# AFTER all movement, undo if necessary
-		if correction:
-			for e in self.rectGroup:
-				e.x -= dx
-				e.y -= dy
-			if dy!=0: # block is dead
-				self.alive = False
 
 def main():
 	os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (50,50)
