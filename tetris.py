@@ -6,11 +6,9 @@ from pygame.locals import *
 
 '''
 FUNCTIONALITY YET TO ADD:
-- Next block preview
-- Better turning mechanics (near walls, etc. - should be able to move r or l one square if that fits)
+- Better turning mechanics (near walls, etc. - should be able to move r or l one square if that fits) OR NEAR CEILING - bump down
 - Restart mechanic (on pause or endgame)
 - Block storage (one at a time/no more than one switch in a row)
-- Two-way rotation
 '''
 
 class Tetris:
@@ -131,6 +129,7 @@ class Tetris:
 					newArray[yIdx][xIdx] = elt
 		self.placedBlocks = newArray
 		
+		# Points! Bonuses for multi-line clears.
 		clearedRows = len(emptyRows)
 		if clearedRows==1:
 			self.score += 100
@@ -177,11 +176,7 @@ class Tetris:
 		
 		self.screen.blit(pauseWord, ((self.width-pauseWordDimensions[0])/2,self.height/4))
 		self.screen.blit(instructions, ((self.width-instructionsDimensions[0])/2,self.height/2))
-		
-		
-		#pauseScreen.blit(pauseWord, ((self.width-pauseWordDimensions[0])/2,self.height/.25))
-		#pauseScreen.blit(instructions, ((self.width-instructionsDimensions[0])/2,self.height/.5))		
-		
+				
 		pygame.display.flip()
 		
 		
@@ -205,6 +200,7 @@ class Tetris:
 						done = True
 			if done: break
 	
+	# returns true if the game is over, false otherwise
 	def checkGameOver(self):
 		for e in self.tetro.rectGroup:
 			for y in self.placedBlocks:
@@ -271,7 +267,7 @@ class Tetris:
 		lastRotation = pygame.time.get_ticks()
 		timeAtLastDrop = pygame.time.get_ticks()
 		lastHardDrop = pygame.time.get_ticks()
-		timeBetweenRotations = 100
+		timeBetweenRotations = 150
 		timeBetweenHardDrops = 250
 		timeBetweenMoves = 75
 		
@@ -319,19 +315,19 @@ class Tetris:
 				tempTime = pygame.time.get_ticks()
 				if tempTime - lastRotation > timeBetweenRotations:
 					lastRotation = tempTime
-					self.tetro.rotate(self.walls, self.placedBlocks)
+					self.tetro.rotate(self.walls, self.placedBlocks, "CW")
 			
 			# or F to rotate right and D to rotate left
-			if key[pygame.K_f]:
-				tempTime = pygame.time.get_ticks()
-				if tempTime - lastRotation > timeBetweenRotations:
-					lastRotation = tempTime
-					self.tetro.rotate(self.walls, self.placedBlocks)
 			if key[pygame.K_d]:
 				tempTime = pygame.time.get_ticks()
 				if tempTime - lastRotation > timeBetweenRotations:
 					lastRotation = tempTime
-					self.tetro.rotate(self.walls, self.placedBlocks)
+					self.tetro.rotate(self.walls, self.placedBlocks, "CW")
+			if key[pygame.K_s]:
+				tempTime = pygame.time.get_ticks()
+				if tempTime - lastRotation > timeBetweenRotations:
+					lastRotation = tempTime
+					self.tetro.rotate(self.walls, self.placedBlocks, "CCW")
 			
 			# SPACE to harddrop
 			if key[pygame.K_SPACE]:
@@ -341,6 +337,7 @@ class Tetris:
 					while self.tetro.alive:
 						self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks)
 			
+			# deal with a dead tetromino and/or endgame
 			if not self.tetro.alive:				
 				self.blockDeath()
 				self.newBlock()
@@ -448,15 +445,8 @@ class Tetromino:
 		# Create a "ghost" piece at the bottom to show where tetromino would land with a harddrop
 		self.dropGhosts()
 	
-	def rotate(self, walls, placedBlocks):
-		'''
-		Rotate the block,
-		Check for collision,
-		If so rotate back to original (i.e. undo rotation)
-		'''
-		self.placedBlocks = placedBlocks
-		self.rotateBlock()
-		
+	# returns True if there is currently a collision, False otherwise.
+	def checkCollision(self, walls, placedBlocks):
 		correction = False
 		for e in self.rectGroup:
 			for wall in walls:
@@ -467,17 +457,39 @@ class Tetromino:
 					if block != None:
 						if e.colliderect(block):
 							correction = True
-			
 			if e.y < 0 or e.bottom > self.height:
 				correction = True
-			
-		if correction:
-			if self.orientation == 0:
-				desiredOrientation = self.maxOrientation[self.genre]
-			else: desiredOrientation = self.orientation -1
-			while self.orientation != desiredOrientation:
-				self.rotateBlock()
+		return correction
+	
+	# direction to rotate. "CW" is clockwise, "CCW" is counterclockwise
+	def rotate(self, walls, placedBlocks, direction):
+		'''
+		Rotate the block,
+		Check for collision,
+		If so rotate back to original (i.e. undo rotation)
+		'''
 		
+		self.placedBlocks = placedBlocks
+		
+		# figure out number of rotations given genre and direction
+		numRotations = 0
+		if direction == "CW":
+			numRotations = 1
+		else: # direction == "CCW"
+			numRotations = self.maxOrientation[self.genre]
+		
+		for r in range(numRotations):
+			self.rotateBlock()
+		
+		correction = self.checkCollision(walls, self.placedBlocks)
+		if correction:
+			if direction == "CW":
+				numRotations = self.maxOrientation[self.genre]
+			else:
+				numRotations = 1
+			for r in range(numRotations):
+				self.rotateBlock()
+
 		self.dropGhosts()
 	
 	def rotateBlock(self):
@@ -670,18 +682,8 @@ class Tetromino:
 			if dy!=0: # block is dead
 				self.alive = False
 
-'''class ghostPiece(Tetromino):
-	def __init__(self, genre, blockSize, x_coord, y_coord):
-		#super().__init__(genre, blockSize, x_coord, y_coord)
-		self.ghostBlocks = rectGroup
-		
-	def __init__(self, blocks):
-		self.ghostBlocks = blocks'''
-		
-		
-		
-
 def main():
+	os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (50,50)
 	t = Tetris()
 	t.MainLoop()
 
