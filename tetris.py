@@ -4,6 +4,15 @@ import math
 import pygame
 from pygame.locals import *
 
+'''
+FUNCTIONALITY YET TO ADD:
+- Next block preview
+- Better turning mechanics (near walls, etc. - should be able to move r or l one square if that fits)
+- Restart mechanic (on pause or endgame)
+- Block storage (one at a time/no more than one switch in a row)
+- Two-way rotation
+'''
+
 class Tetris:
 	colors = {'RED':pygame.Color(255,0,0),
 	          'PURPLE':pygame.Color(128,0,128),
@@ -14,25 +23,28 @@ class Tetris:
 			  'YELLOW':pygame.Color(255,255,0),
 			  'PINK':pygame.Color(255,51,153),
 			  'SEA':pygame.Color(0,102,102),
-			  'GRAY':pygame.Color(200,200,200),
+			  'GRAY':pygame.Color(100,100,100),
 			  'BLACK':pygame.Color(0,0,0),
 			  'WHITE':pygame.Color(255,255,255)}
 	
 	genres = ['LONG','RHOOK','LHOOK','SQUARE','SBLOCK',
 			  'TBLOCK','ZBLOCK']
 	
-	FPS = 60
+	FPS = 120
 	fpsClock = pygame.time.Clock()
 	blockSize = 40
-	barWidth = 40 # sidebars
+	barWidth = int(blockSize*2.5) # sidebars
+	widthInBlocks = 12
+	heightInBlocks = 20
 	
-	def __init__(self, width=blockSize*12+barWidth*2, height=blockSize*20):
+	def __init__(self, width=blockSize*widthInBlocks+barWidth*2, height=blockSize*heightInBlocks):
 		pygame.init()
 		self.width = width # with sidebars
 		self.gameWidth = self.width - self.barWidth*2 # width w/out sidebars
 		self.height = height
 		self.screen = pygame.display.set_mode((self.width, self.height))
 		self.score = 0
+		self.nextBlock = None
 		
 		self.walls = [pygame.Rect(0,0,self.barWidth,self.height),pygame.Rect(self.width-self.barWidth,0,self.barWidth,self.height)]
 		
@@ -45,8 +57,15 @@ class Tetris:
 		
 	def newBlock(self):
 		genre = random.choice(self.genres)
-		self.tetro = Tetromino(genre,self.blockSize,
-						  self.startCoordinates[0],self.startCoordinates[1])
+		if self.nextBlock == None:
+			self.tetro = Tetromino(genre,self.blockSize,
+						  self.startCoordinates[0],self.startCoordinates[1], self.height, self.placedBlocks)
+		else:
+			self.tetro = Tetromino(self.nextBlock.genre,self.blockSize,
+								   self.startCoordinates[0],self.startCoordinates[1], self.height, self.placedBlocks)
+
+		self.nextBlock = Tetromino(genre,self.barWidth/5,self.width-(4*self.barWidth/5),self.height/4, self.height, self.placedBlocks)
+		
 		
 		
 	# turn these into walls
@@ -57,7 +76,7 @@ class Tetris:
 		
 		# display score
 		myFont = pygame.font.SysFont("monospace", 15)
-		label = myFont.render(str(self.score), 1, self.colors['SEA'])
+		label = myFont.render(str(self.score), 1, self.colors['WHITE'])
 		labelDimensions = myFont.size(str(self.score)) # duple (width, height)
 		self.screen.blit(label, (self.width-labelDimensions[0],0))
 		
@@ -71,6 +90,12 @@ class Tetris:
 		#if self.tetro:
 		for b in self.tetro.rectGroup:
 			pygame.draw.rect(self.screen,self.colors[self.tetro.blockColor],b)
+		
+		if self.tetro.alive:
+			for b in self.tetro.ghostBlocks:
+				pygame.draw.rect(self.screen,self.colors['WHITE'],b)
+			for b in self.nextBlock.rectGroup:
+				pygame.draw.rect(self.screen,self.colors[self.nextBlock.blockColor],b)
 		
 		# draw gridlines
 		for y in range(self.blockSize,self.height,self.blockSize):
@@ -246,10 +271,9 @@ class Tetris:
 		lastRotation = pygame.time.get_ticks()
 		timeAtLastDrop = pygame.time.get_ticks()
 		lastHardDrop = pygame.time.get_ticks()
-		TimeAtLastMove = pygame.time.get_ticks()
-		timeBetweenRotations = 85
-		timeBetweenHardDrops = 150
-		timeBetweenMoves = 35
+		timeBetweenRotations = 100
+		timeBetweenHardDrops = 250
+		timeBetweenMoves = 75
 		
 		lastLeft = pygame.time.get_ticks()
 		lastRight = pygame.time.get_ticks()
@@ -266,61 +290,56 @@ class Tetris:
 					self.pause()
 
 			# gravity
-			# should change based on score (eventually)
 			timeNow = pygame.time.get_ticks()
 			# initially drop once per second, increasing in speed with higher score
-			if timeNow - timeAtLastDrop > 1000*(math.e**(-1.*self.score/2000)):
+			if timeNow - timeAtLastDrop > 1000*(math.e**(-1.*self.score/10000)):
 				timeAtLastDrop = timeNow
-				self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks,self.height)
-			
-			'''key = pygame.key.get_pressed()
-			if key[pygame.K_LEFT] and self.tetro.alive:
-				tmp = pygame.time.get_ticks()
-				if tmp - TimeAtLastMove > timeBetweenMoves:
-					timeAtLastMove = tmp
-					self.tetro.move(-self.blockSize,0,self.walls, self.placedBlocks, self.height)
-			if key[pygame.K_RIGHT] and self.tetro.alive:
-				tmp = pygame.time.get_ticks()
-				if tmp - TimeAtLastMove > timeBetweenMoves:
-					timeAtLastMove = tmp
-					self.tetro.move(self.blockSize,0,self.walls,self.placedBlocks, self.height)
-			if key[pygame.K_DOWN] and self.tetro.alive:
-				tmp = pygame.time.get_ticks()
-				if tmp - TimeAtLastMove > timeBetweenMoves:
-					timeAtLastMove = tmp
-					self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks, self.height)'''
-			
+				self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks)
+						
 			key = pygame.key.get_pressed()
+			# LEFT, RIGHT, or DOWN to move the tetromino
 			if key[pygame.K_LEFT] and self.tetro.alive:
 				tmp = pygame.time.get_ticks()
 				if tmp - lastLeft > timeBetweenMoves:
 					lastLeft = tmp
-					self.tetro.move(-self.blockSize,0,self.walls, self.placedBlocks, self.height)
+					self.tetro.move(-self.blockSize,0,self.walls, self.placedBlocks)
 			if key[pygame.K_RIGHT] and self.tetro.alive:
 				tmp = pygame.time.get_ticks()
 				if tmp - lastRight > timeBetweenMoves:
 					lastRight = tmp
-					self.tetro.move(self.blockSize,0,self.walls,self.placedBlocks, self.height)
+					self.tetro.move(self.blockSize,0,self.walls,self.placedBlocks)
 			if key[pygame.K_DOWN] and self.tetro.alive:
 				tmp = pygame.time.get_ticks()
 				if tmp - lastDown > timeBetweenMoves:
 					lastDown = tmp
-					self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks, self.height)
-				
-			'''only want to do a rotation every ~.5 s, maybe? check with clock'''
+					self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks)
+			
+			# UP to rotate
 			if key[pygame.K_UP]:
 				tempTime = pygame.time.get_ticks()
 				if tempTime - lastRotation > timeBetweenRotations:
 					lastRotation = tempTime
-					self.tetro.rotate(self.walls, self.placedBlocks, self.height)
+					self.tetro.rotate(self.walls, self.placedBlocks)
 			
-			# harddrop
+			# or F to rotate right and D to rotate left
+			if key[pygame.K_f]:
+				tempTime = pygame.time.get_ticks()
+				if tempTime - lastRotation > timeBetweenRotations:
+					lastRotation = tempTime
+					self.tetro.rotate(self.walls, self.placedBlocks)
+			if key[pygame.K_d]:
+				tempTime = pygame.time.get_ticks()
+				if tempTime - lastRotation > timeBetweenRotations:
+					lastRotation = tempTime
+					self.tetro.rotate(self.walls, self.placedBlocks)
+			
+			# SPACE to harddrop
 			if key[pygame.K_SPACE]:
 				tempTime = pygame.time.get_ticks()
 				if tempTime - lastHardDrop > timeBetweenHardDrops:
 					lastHardDrop = tempTime
 					while self.tetro.alive:
-						self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks,self.height)
+						self.tetro.move(0,self.blockSize,self.walls,self.placedBlocks)
 			
 			if not self.tetro.alive:				
 				self.blockDeath()
@@ -342,22 +361,24 @@ class Tetromino:
 	maxOrientation = {'LONG':1,'RHOOK':3,'LHOOK':3,'SQUARE':0,
 					  'SBLOCK':1,'TBLOCK':3,'ZBLOCK':1}
 	
-	def __init__(self, genre, blockSize, x_coord, y_coord):
-		#pygame.sprite.Sprite.__init__(self)
+	# Genre is the shape of block
+	def __init__(self, genre, blockSize, x_coord, y_coord, height, placedBlocks):
 		self.genre = genre
 		self.blockSize = blockSize
 		self.x_coord = x_coord
 		self.y_coord = y_coord
 		self.blockColor = self.blockColors[genre]
 		self.alive = True
+		self.placedBlocks = placedBlocks
+		self.height = height
 		
-		# attribute to track orientation
-		# initially 0; this is the max for SQUARE
+		# Attribute to track orientation
+		# Initially 0; this is the max for SQUARE
 		# LONG, SBLOCK, and ZBLOCKs also have a 1
 		# LHOOK, RHOOK, and TBLOCK also have 2 and 3, based on clockwise rotation from initial orientation
 		self.orientation = 0
 		
-		#self.rectGroup = pygame.sprite.Group()
+		# Array of the rects in the tetromino
 		self.rectGroup = []
 		
 		if self.genre=='LONG':
@@ -423,40 +444,41 @@ class Tetromino:
 								  self.blockSize, self.blockSize))
 			self.rectGroup.append(Rect(self.x_coord+blockSize*2, self.y_coord+blockSize,
 								  self.blockSize, self.blockSize))
+		
+		# Create a "ghost" piece at the bottom to show where tetromino would land with a harddrop
+		self.dropGhosts()
 	
-	
-	def rotate(self, walls, placedBlocks, height):
+	def rotate(self, walls, placedBlocks):
 		'''
-			rotate the block,
-			check for collision,
-			if so rotate back to original (i.e. undo rotation)
+		Rotate the block,
+		Check for collision,
+		If so rotate back to original (i.e. undo rotation)
 		'''
+		self.placedBlocks = placedBlocks
 		self.rotateBlock()
 		
 		correction = False
-		
 		for e in self.rectGroup:
 			for wall in walls:
 				if e.colliderect(wall):
 					correction = True
-			for row in placedBlocks:
+			for row in self.placedBlocks:
 				for block in row:
 					if block != None:
 						if e.colliderect(block):
 							correction = True
 			
-			# check that we don't go off the top or bottom
-			# MAYBE CHECKING WALL HEIGHT ISN'T A GOOD IDEA
-			if e.y < 0 or e.bottom > height:
+			if e.y < 0 or e.bottom > self.height:
 				correction = True
 			
-		# AFTER all movement, undo if necessary
 		if correction:
 			if self.orientation == 0:
 				desiredOrientation = self.maxOrientation[self.genre]
 			else: desiredOrientation = self.orientation -1
 			while self.orientation != desiredOrientation:
 				self.rotateBlock()
+		
+		self.dropGhosts()
 	
 	def rotateBlock(self):
 		if self.genre=='LONG':
@@ -579,24 +601,47 @@ class Tetromino:
 				self.rectGroup[3].x += self.blockSize
 				self.rectGroup[3].y -= self.blockSize
 				self.orientation = 0
-			
-			
 				
+	def dropGhosts(self):
+		self.ghostBlocks = []
+		for a in self.rectGroup:
+			self.ghostBlocks.append(Rect(a.x,a.y,self.blockSize,self.blockSize))
+		
+		# drop ghostblocks to the bottom
+		correction = False
+		while not correction:			
+			for e in self.ghostBlocks:
+				e.y += self.blockSize
+				
+				for row in self.placedBlocks:
+					for block in row:
+						if block != None:
+							if e.colliderect(block):
+								correction = True
+				
+				if e.y < 0 or e.bottom > self.height:
+					correction = True
+				
+			if correction:
+				for e in self.ghostBlocks:
+					e.y -= self.blockSize
+		
 	
-	def move(self, dx, dy, wallArray, placedBlocks, height):
+	def move(self, dx, dy, wallArray, placedBlocks):
+		self.placedBlocks = placedBlocks
 		if dx!=0:
-			self.move_single_axis(dx,0,wallArray, placedBlocks, height)
+			self.move_single_axis(dx,0,wallArray)
 		if dy!=0:
-			self.move_single_axis(0,dy,wallArray, placedBlocks, height)
+			self.move_single_axis(0,dy,wallArray)
+		
+		if self.alive:
+			self.dropGhosts()
+			
 			
 	# move ALL rects in the piece, check each for collision;
 	# if there's ANY collision, move them ALL back
-	# 
-	# New theory: we don't actually need to account for collision;
-	# if there's a wall, just don't move; we move discretely
-	# probably need to deal with already-landed tetr.s separately
-	def move_single_axis(self, dx, dy, walls, placedBlocks, ht):
-		correction = False # undo move for ALL rects?
+	def move_single_axis(self, dx, dy, walls):
+		correction = False
 		
 		for e in self.rectGroup:
 			e.x += dx
@@ -606,7 +651,7 @@ class Tetromino:
 			for wall in walls: # need to get this in somehow
 				if e.colliderect(wall):
 					correction = True
-			for row in placedBlocks:
+			for row in self.placedBlocks:
 				for block in row:
 					if block != None:
 						if e.colliderect(block):
@@ -614,7 +659,7 @@ class Tetromino:
 			
 			# check that we don't go off the top or bottom
 			# MAYBE CHECKING WALL HEIGHT ISN'T A GOOD IDEA
-			if e.y < 0 or e.bottom > ht:
+			if e.y < 0 or e.bottom > self.height:
 				correction = True
 			
 		# AFTER all movement, undo if necessary
@@ -625,7 +670,15 @@ class Tetromino:
 			if dy!=0: # block is dead
 				self.alive = False
 
-
+'''class ghostPiece(Tetromino):
+	def __init__(self, genre, blockSize, x_coord, y_coord):
+		#super().__init__(genre, blockSize, x_coord, y_coord)
+		self.ghostBlocks = rectGroup
+		
+	def __init__(self, blocks):
+		self.ghostBlocks = blocks'''
+		
+		
 		
 
 def main():
