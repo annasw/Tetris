@@ -7,8 +7,10 @@ from tetromino import *
 
 '''
 FUNCTIONALITY YET TO ADD:
-- Better turning mechanics (near walls, etc. - should be able to move r or l one square if that fits) OR NEAR CEILING - bump down
-- Block storage (one at a time/no more than one switch in a row)
+- Better turning mechanics (near walls, etc.)
+- Timer, line counter for time-to-40
+- Start screen, instructions, options (speed thresholds, etc.)
+- Different game modes
 '''
 
 class Tetris:
@@ -44,6 +46,10 @@ class Tetris:
 		self.score = 0
 		self.nextBlock = None
 		
+		# stored block, and a boolean for whether we switched this block already
+		self.storedBlock = None
+		self.switchedThisBlock = False
+		
 		self.walls = [pygame.Rect(0,0,self.barWidth,self.height),pygame.Rect(self.width-self.barWidth,0,self.barWidth,self.height)]
 		
 		# array of placed blocks:
@@ -58,9 +64,12 @@ class Tetris:
 		self.score = 0
 		self.nextBlock = None
 		self.placedBlocks = [[None for x in range(self.gameWidth/self.blockSize)] for y in range(self.height/self.blockSize)]
+		self.storedBlock = None
+		self.switchedThisBlock = False
 		self.newBlock()
 		
 	def newBlock(self):
+		self.switchedThisBlock = False
 		genre = random.choice(self.genres)
 		if self.nextBlock == None:
 			self.tetro = Tetromino(genre,self.blockSize,
@@ -73,7 +82,7 @@ class Tetris:
 		
 		
 		
-	# turn these into walls
+	# draw everything onto the screen
 	def drawScreen(self):
 		self.screen.fill(self.colors['BLACK'])
 		for w in self.walls:
@@ -85,6 +94,7 @@ class Tetris:
 		labelDimensions = myFont.size(str(self.score)) # duple (width, height)
 		self.screen.blit(label, (self.width-labelDimensions[0],0))
 		
+		# draw the placed blocks
 		for row in self.placedBlocks:
 			for b in row:
 				if b != None:
@@ -101,6 +111,11 @@ class Tetris:
 				pygame.draw.rect(self.screen,self.colors['WHITE'],b)
 			for b in self.nextBlock.rectGroup:
 				pygame.draw.rect(self.screen,self.colors[self.nextBlock.blockColor],b)
+		
+		if self.storedBlock != None:
+			for b in self.storedBlock.rectGroup:
+				pygame.draw.rect(self.screen,self.colors[self.storedBlock.blockColor],b)
+			
 		
 		# draw gridlines
 		for y in range(self.blockSize,self.height,self.blockSize):
@@ -156,7 +171,6 @@ class Tetris:
 			self.placedBlocks[yIdx][xIdx] = b
 		
 		self.clearRows()
-	
 	
 	# pause method. also handles exiting the game
 	def pause(self):
@@ -342,6 +356,23 @@ class Tetris:
 				if tempTime - lastRotation > timeBetweenRotations:
 					lastRotation = tempTime
 					self.tetro.rotate(self.walls, self.placedBlocks, "CCW")
+			
+			# F stores/switches with the stored block
+			if key[pygame.K_f]:
+				if not self.switchedThisBlock:
+					if self.storedBlock == None:
+						self.storedBlock = Tetromino(self.tetro.genre,self.barWidth/5,
+													 self.barWidth/5,self.height/4,self.height,self.placedBlocks)
+						self.newBlock()
+					else:
+						temp = self.storedBlock
+						self.storedBlock = Tetromino(self.tetro.genre,self.barWidth/5,
+													 self.barWidth/5,self.height/4,self.height,self.placedBlocks)
+						self.tetro = Tetromino(temp.genre,self.blockSize,
+											   self.startCoordinates[0],self.startCoordinates[1],
+											   self.height, self.placedBlocks)
+					
+					self.switchedThisBlock = True
 			
 			# SPACE to harddrop
 			if key[pygame.K_SPACE]:
