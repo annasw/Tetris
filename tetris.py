@@ -11,6 +11,8 @@ FUNCTIONALITY YET TO ADD:
 - Timer, line counter for time-to-40
 - Start screen, instructions, options (speed thresholds, etc.)
 - Different game modes
+- Highscore
+- Add text for next piece, stored piece, score, (highscore) (add boxes for next piece/stored piece)
 '''
 
 class Tetris:
@@ -45,6 +47,7 @@ class Tetris:
 		self.screen = pygame.display.set_mode((self.width, self.height))
 		self.score = 0
 		self.nextBlock = None
+		self.highScore = 0
 		
 		# stored block, and a boolean for whether we switched this block already
 		self.storedBlock = None
@@ -88,11 +91,22 @@ class Tetris:
 		for w in self.walls:
 			pygame.draw.rect(self.screen,self.colors['GRAY'],w)
 		
-		# display score
+		# display score-text and score
 		myFont = pygame.font.SysFont("monospace", 15)
-		label = myFont.render(str(self.score), 1, self.colors['WHITE'])
-		labelDimensions = myFont.size(str(self.score)) # duple (width, height)
-		self.screen.blit(label, (self.width-labelDimensions[0],0))
+		scoreString = myFont.render(str(self.score), 1, self.colors['WHITE'])
+		scoreText = myFont.render("Score:",1,self.colors['WHITE'])
+		scoreDimensions = myFont.size(str(self.score)) # duple (width, height)
+		scoreTextDimensions = myFont.size("Score:")
+		self.screen.blit(scoreText, (self.width-self.barWidth+1,0))
+		self.screen.blit(scoreString, (self.width-scoreDimensions[0],scoreTextDimensions[1]))
+		
+		# display high-score text and high-score
+		highScoreString = myFont.render(str(self.highScore),1,self.colors['WHITE'])
+		highScoreText = myFont.render("High Score:",1,self.colors['WHITE'])
+		highScoreDimensions = myFont.size(str(self.highScore))
+		highScoreTextDimensions = myFont.size("High Score:")
+		self.screen.blit(highScoreText, (self.width-self.barWidth+1, highScoreTextDimensions[1]*3))
+		self.screen.blit(highScoreString, (self.width-highScoreDimensions[0], highScoreTextDimensions[1]*4))
 		
 		# draw the placed blocks
 		for row in self.placedBlocks:
@@ -161,6 +175,7 @@ class Tetris:
 			self.score += 450
 		elif clearedRows==4: # big bonus: 2x
 			self.score += 800
+		self.highScore = max(self.score, self.highScore)
 	
 	# deal with the death of a block
 	def blockDeath(self):		
