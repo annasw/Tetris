@@ -134,7 +134,22 @@ class Tetromino:
 		
 		for r in range(numRotations):
 			self.rotateBlock()
+			
+		# turn even if "hitting" the ceiling
+		if self.checkCollision(walls,self.placedBlocks):
+			hittingCeiling = False
+			for e in self.rectGroup:
+				if e.y<0:
+					hittingCeiling = True
+			if hittingCeiling:
+				self.move(0,self.blockSize,walls,self.placedBlocks)
+				# if that didn't fix it, move back
+				if self.checkCollision(walls, self.placedBlocks):
+					self.move(0,-self.blockSize,walls,self.placedBlocks)
+				
 		
+		
+		# undo the rotation if it caused a collision
 		correction = self.checkCollision(walls, self.placedBlocks)
 		if correction:
 			if direction == "CW":
