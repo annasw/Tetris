@@ -1,8 +1,8 @@
 import os, sys
 import random
 import math
-import pygame
-from pygame.locals import *
+#import pygame
+#from pygame.locals import *
 from tetromino import *
 
 '''
@@ -11,8 +11,8 @@ FUNCTIONALITY YET TO ADD:
 - Timer, line counter for time-to-40
 - Start screen, instructions, options (speed thresholds, etc.)
 - Different game modes
-- Highscore
 - Add text for next piece, stored piece, score, (highscore) (add boxes for next piece/stored piece)
+- Add color to placed blocks (? Not sure if I even want this)
 '''
 
 class Tetris:
@@ -29,64 +29,85 @@ class Tetris:
 			  'BLACK':pygame.Color(0,0,0),
 			  'WHITE':pygame.Color(255,255,255)}
 	
+	# Shapes of tetrominos
 	genres = ['LONG','RHOOK','LHOOK','SQUARE','SBLOCK',
 			  'TBLOCK','ZBLOCK']
 	
 	FPS = 120
 	fpsClock = pygame.time.Clock()
+	
+	# the unit size of a block (for the grid and tetromino blocks)
 	blockSize = 40
-	barWidth = int(blockSize*2.5) # sidebars
+	
+	# width of sidebars
+	barWidth = int(blockSize*2.5)
+	# dimensions of play area in blockSize units
 	widthInBlocks = 12
 	heightInBlocks = 20
 	
+	'''
+	Initiate game.
+	Width can be specified, but mostly should just be changed in the above variables.
+	Ditto height.
+	'''
 	def __init__(self, width=blockSize*widthInBlocks+barWidth*2, height=blockSize*heightInBlocks):
 		pygame.init()
-		self.width = width # with sidebars
+		self.width = width # width with sidebars
 		self.gameWidth = self.width - self.barWidth*2 # width w/out sidebars
 		self.height = height
 		self.screen = pygame.display.set_mode((self.width, self.height))
+		
 		self.score = 0
-		self.nextBlock = None
 		self.highScore = 0
+		
+		# the next block to fall. Will be set in newBlock() method
+		self.nextBlock = None
 		
 		# stored block, and a boolean for whether we switched this block already
 		self.storedBlock = None
 		self.switchedThisBlock = False
 		
+		# draw the sidebars/walls
 		self.walls = [pygame.Rect(0,0,self.barWidth,self.height),pygame.Rect(self.width-self.barWidth,0,self.barWidth,self.height)]
 		
-		# array of placed blocks:
+		# array of placed blocks (from fallen tetrominos)
 		# it has gameWidth/blockSize columns and height/blockSize rows
-		self.placedBlocks = [[None for x in range(self.gameWidth/self.blockSize)] for y in range(self.height/self.blockSize)]
+		self.placedBlocks = [[None for x in range(int(self.gameWidth/self.blockSize))] for y in range(int(self.height/self.blockSize))]
 		
+		# set the location where new tetrominos will spawn
 		self.startCoordinates = (self.barWidth + self.blockSize*2,0)
+		
 		pygame.display.set_caption('Tetris!')
 	
-	# reset all aspects of the game
+	# Reset all aspects of the game (except high score)
 	def restart(self):
 		self.score = 0
 		self.nextBlock = None
-		self.placedBlocks = [[None for x in range(self.gameWidth/self.blockSize)] for y in range(self.height/self.blockSize)]
+		self.placedBlocks = [[None for x in range(int(self.gameWidth/self.blockSize))] for y in range(int(self.height/self.blockSize))]
 		self.storedBlock = None
 		self.switchedThisBlock = False
 		self.newBlock()
-		
+	
+	# Spawn a new block, as well as a random next block.
+	# (In most cases the new block is just the previous next block, so there's only one random choice.)
 	def newBlock(self):
 		self.switchedThisBlock = False
 		genre = random.choice(self.genres)
+		
+		# There is no next block on new game or reset, so we spawn a random one.
 		if self.nextBlock == None:
 			self.tetro = Tetromino(genre,self.blockSize,
 						  self.startCoordinates[0],self.startCoordinates[1], self.height, self.placedBlocks)
 		else:
 			self.tetro = Tetromino(self.nextBlock.genre,self.blockSize,
 								   self.startCoordinates[0],self.startCoordinates[1], self.height, self.placedBlocks)
-
-		self.nextBlock = Tetromino(genre,self.barWidth/5,self.width-(4*self.barWidth/5),self.height/4, self.height, self.placedBlocks)
 		
-		
+		# Shows the next block on the right sidebar
+		self.nextBlock = Tetromino(genre,int(self.barWidth/5),self.width-(4*int(self.barWidth/5)),int(self.height/4), self.height, self.placedBlocks)
 		
 	# draw everything onto the screen
 	def drawScreen(self):
+		# draw background and walls
 		self.screen.fill(self.colors['BLACK'])
 		for w in self.walls:
 			pygame.draw.rect(self.screen,self.colors['GRAY'],w)
@@ -95,7 +116,7 @@ class Tetris:
 		myFont = pygame.font.SysFont("monospace", 15)
 		scoreString = myFont.render(str(self.score), 1, self.colors['WHITE'])
 		scoreText = myFont.render("Score:",1,self.colors['WHITE'])
-		scoreDimensions = myFont.size(str(self.score)) # duple (width, height)
+		scoreDimensions = myFont.size(str(self.score))
 		scoreTextDimensions = myFont.size("Score:")
 		self.screen.blit(scoreText, (self.width-self.barWidth+1,0))
 		self.screen.blit(scoreString, (self.width-scoreDimensions[0],scoreTextDimensions[1]))
@@ -112,24 +133,24 @@ class Tetris:
 		for row in self.placedBlocks:
 			for b in row:
 				if b != None:
-					# deal with color later tbh
-					#pygame.draw.rect(self.screen,self.colors[b.blockColor],b)
 					pygame.draw.rect(self.screen,self.colors["RED"],b)
 		
-		#if self.tetro:
+		# draw the current tetromino
 		for b in self.tetro.rectGroup:
 			pygame.draw.rect(self.screen,self.colors[self.tetro.blockColor],b)
 		
+		# if relevant, draw the current tetromino's ghost at the bottom of the screen
+		# and draw the next block
 		if self.tetro.alive:
 			for b in self.tetro.ghostBlocks:
 				pygame.draw.rect(self.screen,self.colors['WHITE'],b)
 			for b in self.nextBlock.rectGroup:
 				pygame.draw.rect(self.screen,self.colors[self.nextBlock.blockColor],b)
 		
+		# draw the stored block
 		if self.storedBlock != None:
 			for b in self.storedBlock.rectGroup:
 				pygame.draw.rect(self.screen,self.colors[self.storedBlock.blockColor],b)
-			
 		
 		# draw gridlines
 		for y in range(self.blockSize,self.height,self.blockSize):
@@ -137,31 +158,30 @@ class Tetris:
 		for x in range(self.barWidth+self.blockSize,self.width-self.barWidth,self.blockSize):
 			pygame.draw.line(self.screen,self.colors['WHITE'],(x,0),(x,self.height))
 				
-	# IT'S WORKING
-	# IT'S WORKIIIIIING
+	# Clear rows when they're full of tetrominos
 	def clearRows(self):
 		emptyRows = [] # list of indices of empty rows
 		for rowIdx in range(len(self.placedBlocks)):
 			if None not in self.placedBlocks[rowIdx]:
 				emptyRows.append(rowIdx)
 				# empty the row
-				self.placedBlocks[rowIdx] = [None for x in range(self.gameWidth/self.blockSize)]
+				self.placedBlocks[rowIdx] = [None for x in range(int(self.gameWidth/self.blockSize))]
+		
 		# for each empty row,
 		# change the y-val of everything above it to move each block down one row
-		# then we're gonna remake the 2D array
 		for row in emptyRows:
 			for rowIdx in range(row):
 				for i in self.placedBlocks[rowIdx]:
 					if i != None:
 						i.y+=self.blockSize
 		
-		newArray = [[None for x in range(self.gameWidth/self.blockSize)] for y in range(self.height/self.blockSize)]
-		
+		# remake the 2D Array, then fill it with our newly-recalibrated placed blocks
+		newArray = [[None for x in range(int(self.gameWidth/self.blockSize))] for y in range(int(self.height/self.blockSize))]
 		for row in self.placedBlocks:
 			for elt in row:
 				if elt != None:
-					xIdx = (elt.x-self.barWidth)/self.blockSize
-					yIdx = elt.y/self.blockSize
+					xIdx = int((elt.x-self.barWidth)/self.blockSize)
+					yIdx = int(elt.y/self.blockSize)
 					newArray[yIdx][xIdx] = elt
 		self.placedBlocks = newArray
 		
@@ -175,23 +195,24 @@ class Tetris:
 			self.score += 450
 		elif clearedRows==4: # big bonus: 2x
 			self.score += 800
+		# update highscore if relevant
 		self.highScore = max(self.score, self.highScore)
 	
-	# deal with the death of a block
+	# deal with the death of a tetromino
 	def blockDeath(self):		
 		# adds block to placedBlocks
 		for b in self.tetro.rectGroup:
-			xIdx = (b.x-self.barWidth)/self.blockSize
-			yIdx = b.y/self.blockSize
+			xIdx = int((b.x-self.barWidth)/self.blockSize)
+			yIdx = int(b.y/self.blockSize)
 			self.placedBlocks[yIdx][xIdx] = b
 		
+		# clear rows if relevant
 		self.clearRows()
 	
 	# pause method. also handles exiting the game
 	def pause(self):
 		# display a screen with PAUSE and
 		# Q TO QUIT and ESC TO UNPAUSE
-		
 		pauseScreen = pygame.Surface((self.width, self.height))
 		
 		pauseScreen.fill(self.colors['BLUE'])
@@ -213,9 +234,9 @@ class Tetris:
 		instructionsDimensions = myFont.size(instructionText)
 		resetDimensions = myFont.size(resetText)
 		
-		self.screen.blit(pauseWord, ((self.width-pauseWordDimensions[0])/2,self.height/4))
-		self.screen.blit(instructions, ((self.width-instructionsDimensions[0])/2,self.height/2))
-		self.screen.blit(resetWord, ((self.width-resetDimensions[0])/2,3*self.height/4))
+		self.screen.blit(pauseWord, ((int(self.width-pauseWordDimensions[0])/2),int(self.height/4)))
+		self.screen.blit(instructions, ((int(self.width-instructionsDimensions[0])/2),int(self.height/2)))
+		self.screen.blit(resetWord, ((int(self.width-resetDimensions[0])/2),int(3*self.height/4)))
 				
 		pygame.display.flip()
 		
@@ -254,9 +275,7 @@ class Tetris:
 	
 	def endGame(self):
 		# display gameOver text and wait for input
-		
-		'''make new outside method/class that calls instances of this class to restart game'''
-		
+				
 		self.drawScreen()
 		
 		gameOverScreen = pygame.Surface((self.width, self.height))
@@ -280,9 +299,9 @@ class Tetris:
 		text2Dimensions = myFont.size(text2)
 		text3Dimensions = myFont.size(text3)
 		
-		self.screen.blit(doneText1, ((self.width-text1Dimensions[0])/2,self.height/4))
-		self.screen.blit(doneText2, ((self.width-text2Dimensions[0])/2,self.height/2))
-		self.screen.blit(doneText3, ((self.width-text3Dimensions[0])/2,3*self.height/4))
+		self.screen.blit(doneText1, ((int(self.width-text1Dimensions[0])/2),int(self.height/4)))
+		self.screen.blit(doneText2, ((int(self.width-text2Dimensions[0])/2),int(self.height/2)))
+		self.screen.blit(doneText3, ((int(self.width-text3Dimensions[0])/2),int(3*self.height/4)))
 				
 		pygame.display.flip()
 		
@@ -376,13 +395,13 @@ class Tetris:
 			if key[pygame.K_f]:
 				if not self.switchedThisBlock:
 					if self.storedBlock == None:
-						self.storedBlock = Tetromino(self.tetro.genre,self.barWidth/5,
-													 self.barWidth/5,self.height/4,self.height,self.placedBlocks)
+						self.storedBlock = Tetromino(self.tetro.genre,int(self.barWidth/5),
+													 int(self.barWidth/5),int(self.height/4),self.height,self.placedBlocks)
 						self.newBlock()
 					else:
 						temp = self.storedBlock
-						self.storedBlock = Tetromino(self.tetro.genre,self.barWidth/5,
-													 self.barWidth/5,self.height/4,self.height,self.placedBlocks)
+						self.storedBlock = Tetromino(self.tetro.genre,int(self.barWidth/5),
+													 int(self.barWidth/5),int(self.height/4),self.height,self.placedBlocks)
 						self.tetro = Tetromino(temp.genre,self.blockSize,
 											   self.startCoordinates[0],self.startCoordinates[1],
 											   self.height, self.placedBlocks)
