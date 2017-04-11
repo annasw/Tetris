@@ -1,8 +1,8 @@
 import os, sys
 import random
 import math
-#import pygame
-#from pygame.locals import *
+import pygame
+from pygame.locals import *
 from tetromino import *
 
 '''
