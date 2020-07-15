@@ -222,7 +222,7 @@ class Tetris:
 		# pausescreen text
 		pauseText = "PAUSED"
 		'''TOO LONG'''
-		instructionText = "Q TO QUIT, ESC TO UNPAUSE"
+		instructionText = "F TO STORE, Q TO QUIT, ESC TO UNPAUSE"
 		resetText = "R TO RESTART"
 		
 		myFont = pygame.font.SysFont("monospace", 30, 1)
